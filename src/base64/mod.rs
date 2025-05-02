@@ -1,32 +1,40 @@
 use std::collections::HashMap;
 
-pub struct CodecTable {
+mod codec_crypto;
+use codec_crypto::{CodecCrypto,en_crypto,de_crypto};
+
+pub struct Base64Codec {
     padding: char,
     table: Vec<u8>, // len == 64
     d_table: HashMap<char, u8>,
+    codec:CodecCrypto
 }
 
-impl CodecTable {
-    pub fn new(s: &str, ch: char) -> CodecTable {
+impl Base64Codec {
+    pub fn new(s: &str, ch: char, codec:CodecCrypto) -> Base64Codec {
         let mut dtb = HashMap::new();
-        let mut idx = 0;
-        let mut chars = s.chars();
-        while let Some(c) = chars.next() {
-            dtb.insert(c, idx);
-            idx += 1;
+        let chars = s.chars();
+        for (idx, c) in chars.enumerate() {
+            dtb.insert(c, idx as u8);
         }
         assert_eq!(dtb.len(), 64);
         dtb.insert(ch, 0);
-        CodecTable {
+        Base64Codec {
             padding: ch,
             table: s.as_bytes().to_vec(),
             d_table: dtb,
+            codec,
         }
     }
-    pub fn default() -> CodecTable {
+    pub fn default() -> Base64Codec {
         let s = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        Self::new(s, '=')
+        Self::new(s, '=',CodecCrypto::Std)
     }
+    pub fn _web_default() -> Base64Codec {
+        let s = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+        Self::new(s, '=',CodecCrypto::Std)
+    }
+
     pub fn encode(&self, s: &str) -> String {
         let mut vec: Vec<u8> = s.as_bytes().to_vec();
         let mut num_padding = 0;
@@ -37,10 +45,10 @@ impl CodecTable {
         let len = vec.len() / 3;
         let mut v_out: Vec<u8> = Vec::with_capacity(len * 4);
         for i in 0..len {
-            v_out.push(self.table[(vec[i * 3] >> 2) as usize]);
-            v_out.push(self.table[(((vec[i * 3] & 0b11) << 4) | (vec[i * 3 + 1] >> 4)) as usize]);
-            v_out.push(self.table[(((vec[i * 3 + 1] << 4) >> 2) | (vec[i * 3 + 2] >> 6)) as usize]);
-            v_out.push(self.table[((vec[i * 3 + 2] << 2) >> 2) as usize]);
+            let arr = en_crypto(self.codec,vec[i*3..=i*3+2].try_into().unwrap());
+            for val in arr{
+                v_out.push(self.table[val as usize]);
+            }
         }
         let mut s_out = String::from_utf8(v_out).unwrap();
         for _ in 0..num_padding {
@@ -56,39 +64,39 @@ impl CodecTable {
         let mut vec: Vec<u8> = Vec::new();
         let mut vec_out: Vec<u8> = Vec::new();
         let mut num_padding = 0;
-        let mut chars = s.chars();
-        while let Some(c) = chars.next() {
+        let chars = s.chars();
+        for c in chars {
             if c == self.padding {
                 num_padding += 1;
             }
             vec.push(self.d_table[&c]);
             if vec.len() == 4 {
-                vec_out.push((vec[0] << 2) | ((vec[1]) >> 4));
-                vec_out.push((vec[1] << 4) | (vec[2] >> 2));
-                vec_out.push((vec[2] << 6) | vec[3]);
+                let arr = de_crypto(self.codec, vec[0..4].try_into().unwrap());
+                for val in arr{
+                    vec_out.push(val);
+                }
                 vec.clear();
             }
         }
-
-        match String::from_utf8(vec_out) {
-            Ok(mut s) => {
+        if vec.is_empty(){
+            if let Ok(mut s)= String::from_utf8(vec_out){
                 while num_padding > 0 {
                     s.pop();
                     num_padding -= 1;
                 }
-                s
+                return s; 
             }
-            _ => String::from("[Error] Invalid Text!"),
         }
+        String::from("[Error] Invalid Text")
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::CodecTable;
+    use super::Base64Codec;
     #[test]
     fn test1_default() {
-        let ct = CodecTable::default();
+        let ct = Base64Codec::default();
         assert_eq!(
             ct.table,
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".as_bytes()
@@ -97,7 +105,7 @@ mod test {
     }
     #[test]
     fn test2_en_utf8() {
-        let ct = CodecTable::default();
+        let ct = Base64Codec::default();
         assert_eq!(
             ct.encode("This is a Base64 Test"),
             "VGhpcyBpcyBhIEJhc2U2NCBUZXN0"
@@ -109,13 +117,13 @@ mod test {
     }
     #[test]
     fn test3_en_utf8_padding() {
-        let ct = CodecTable::default();
+        let ct = Base64Codec::default();
         assert_eq!(ct.encode("12345"), "MTIzNDU=");
         assert_eq!(ct.encode("padding"), "cGFkZGluZw==");
     }
     #[test]
     fn test4_de_utf8() {
-        let ct = CodecTable::default();
+        let ct = Base64Codec::default();
         assert_eq!(
             ct.decode("6L+b6KGM6Kej56CB5rWL6K+V").as_bytes(),
             "进行解码测试".as_bytes()
@@ -127,13 +135,13 @@ mod test {
     }
     #[test]
     fn test4_de_utf8_padding() {
-        let ct = CodecTable::default();
+        let ct = Base64Codec::default();
         assert_eq!(ct.decode("QUJDRA==").as_bytes(), "ABCD".as_bytes());
     }
     #[test]
     fn test5_en_de() {
-        let ct = CodecTable::default();
+        let ct = Base64Codec::default();
         let s = "Base64 是一种基于 64 个可打印字符来表示二进制数据的表示方法，由于 2^6=64，所以每 6 个比特为一个单元，对应某个可打印字符。";
-        assert_eq!(ct.decode(&ct.encode(s)).as_bytes(), s.as_bytes());
+        assert_eq!(ct.decode(&ct.encode(s)), s);
     }
 }

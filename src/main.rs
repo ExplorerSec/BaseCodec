@@ -1,10 +1,10 @@
 mod base64;
 use base64::Base64Codec;
-use std::fs::read_to_string;
+use std::fs::{read,read_to_string};
 use std::env::args;
 
 fn show_help(){
-    println!("Base64_v0.1.2 [Option] [Text]");
+    println!("Base64_v0.1.3 [Option] [Text]");
     println!("Option:");
     println!("    e|-e      to encode");
     println!("    d|-d      to decode");
@@ -19,14 +19,14 @@ fn main() {
             let ct = Base64Codec::default();
             match &args[1][..] {
                 "e"|"-e" =>{
-                    println!("{}",ct.encode(&args[2])); 
+                    println!("{}",ct.encode_str(&args[2])); 
                 },
                 "d"|"-d" =>{
-                    println!("{}",ct.decode(&args[2]));
+                    println!("{}",ct.decode_str(&args[2]));
                 },
                 "fe"|"-fe" =>{
-                    if let Ok(s) = read_to_string(&args[2]){
-                        println!("{}",ct.encode(&s));
+                    if let Ok(vec) = read(&args[2]){
+                        println!("{}",ct.encode(vec));
                     }
                     else {
                         println!("[Error] Failed to read file");
@@ -34,7 +34,7 @@ fn main() {
                 },
                 "fd"|"-fd" =>{
                     if let Ok(s) = read_to_string(&args[2]){
-                        println!("{}",ct.decode(&s));
+                        println!("{}",ct.decode_str(&s));
                     }
                     else {
                         println!("[Error] Failed to read file");

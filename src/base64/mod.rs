@@ -34,9 +34,7 @@ impl Base64Codec {
         let s = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
         Self::new(s, '=',CodecCrypto::Std)
     }
-
-    pub fn encode(&self, s: &str) -> String {
-        let mut vec: Vec<u8> = s.as_bytes().to_vec();
+    pub fn encode(&self, mut vec:Vec<u8>) -> String {
         let mut num_padding = 0;
         while vec.len() % 3 != 0 {
             vec.push(0);
@@ -60,7 +58,11 @@ impl Base64Codec {
 
         s_out
     }
-    pub fn decode(&self, s: &str) -> String {
+    pub fn encode_str(&self, s: &str) -> String {
+        let vec: Vec<u8> = s.as_bytes().to_vec();
+        self.encode(vec)
+    }
+    pub fn decode(&self, s: &str) -> Vec<u8> {
         let mut vec: Vec<u8> = Vec::new();
         let mut vec_out: Vec<u8> = Vec::new();
         let mut num_padding = 0;
@@ -79,15 +81,21 @@ impl Base64Codec {
             }
         }
         if vec.is_empty(){
-            if let Ok(mut s)= String::from_utf8(vec_out){
-                while num_padding > 0 {
-                    s.pop();
-                    num_padding -= 1;
-                }
-                return s; 
+            for _ in 0..(self.padding.len_utf8()*num_padding){
+                vec_out.pop();
             }
+            return vec_out;
         }
-        String::from("[Error] Invalid Text")
+        Vec::from("[Error] Invalid Text")
+    }
+
+    pub fn decode_str(&self, s: &str) -> String{
+        let vec = self.decode(s);
+        if let Ok(s) = String::from_utf8(vec){
+            s
+        }else {
+            String::from("[Error] Invalid String")
+        }
     }
 }
 
@@ -107,41 +115,41 @@ mod test {
     fn test2_en_utf8() {
         let ct = Base64Codec::default();
         assert_eq!(
-            ct.encode("This is a Base64 Test"),
+            ct.encode_str("This is a Base64 Test"),
             "VGhpcyBpcyBhIEJhc2U2NCBUZXN0"
         );
         assert_eq!(
-            ct.encode("这是一个进行编码的测试"),
+            ct.encode_str("这是一个进行编码的测试"),
             "6L+Z5piv5LiA5Liq6L+b6KGM57yW56CB55qE5rWL6K+V"
         );
     }
     #[test]
     fn test3_en_utf8_padding() {
         let ct = Base64Codec::default();
-        assert_eq!(ct.encode("12345"), "MTIzNDU=");
-        assert_eq!(ct.encode("padding"), "cGFkZGluZw==");
+        assert_eq!(ct.encode_str("12345"), "MTIzNDU=");
+        assert_eq!(ct.encode_str("padding"), "cGFkZGluZw==");
     }
     #[test]
     fn test4_de_utf8() {
         let ct = Base64Codec::default();
         assert_eq!(
-            ct.decode("6L+b6KGM6Kej56CB5rWL6K+V").as_bytes(),
+            ct.decode_str("6L+b6KGM6Kej56CB5rWL6K+V").as_bytes(),
             "进行解码测试".as_bytes()
         );
         assert_eq!(
-            ct.decode("WlhDVkJOTUxLSkhHRkRTQVFXRVJUWVVJT1A7").as_bytes(),
+            ct.decode_str("WlhDVkJOTUxLSkhHRkRTQVFXRVJUWVVJT1A7").as_bytes(),
             "ZXCVBNMLKJHGFDSAQWERTYUIOP;".as_bytes()
         );
     }
     #[test]
     fn test4_de_utf8_padding() {
         let ct = Base64Codec::default();
-        assert_eq!(ct.decode("QUJDRA==").as_bytes(), "ABCD".as_bytes());
+        assert_eq!(ct.decode_str("QUJDRA==").as_bytes(), "ABCD".as_bytes());
     }
     #[test]
     fn test5_en_de() {
         let ct = Base64Codec::default();
         let s = "Base64 是一种基于 64 个可打印字符来表示二进制数据的表示方法，由于 2^6=64，所以每 6 个比特为一个单元，对应某个可打印字符。";
-        assert_eq!(ct.decode(&ct.encode(s)), s);
+        assert_eq!(ct.decode_str(&ct.encode_str(s)), s);
     }
 }

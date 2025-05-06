@@ -94,7 +94,7 @@ impl Base64Codec {
         if let Ok(s) = String::from_utf8(vec){
             s
         }else {
-            String::from("[Error] Invalid String")
+            String::from("[Error] Invalid String, Try fdf mode!")
         }
     }
 }

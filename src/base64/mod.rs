@@ -30,7 +30,7 @@ impl Base64Codec {
         let s = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         Self::new(s, '=',CodecCrypto::Std)
     }
-    pub fn _web_default() -> Base64Codec {
+    pub fn web_default() -> Base64Codec {
         let s = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
         Self::new(s, '=',CodecCrypto::Std)
     }

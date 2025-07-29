@@ -1,17 +1,17 @@
 use std::collections::HashMap;
 
 mod codec_crypto;
-use codec_crypto::{CodecCrypto,en_crypto,de_crypto};
+use codec_crypto::{CodecCrypto, de_crypto, en_crypto};
 
 pub struct Base64Codec {
     padding: char,
     table: Vec<u8>, // len == 64
     d_table: HashMap<char, u8>,
-    codec:CodecCrypto
+    codec: CodecCrypto,
 }
 
 impl Base64Codec {
-    pub fn new(s: &str, ch: char, codec:CodecCrypto) -> Base64Codec {
+    pub fn new(s: &str, ch: char, codec: CodecCrypto) -> Base64Codec {
         let mut dtb = HashMap::new();
         let chars = s.chars();
         for (idx, c) in chars.enumerate() {
@@ -28,13 +28,13 @@ impl Base64Codec {
     }
     pub fn default() -> Base64Codec {
         let s = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        Self::new(s, '=',CodecCrypto::Std)
+        Self::new(s, '=', CodecCrypto::Std)
     }
     pub fn web_default() -> Base64Codec {
         let s = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-        Self::new(s, '=',CodecCrypto::Std)
+        Self::new(s, '=', CodecCrypto::Std)
     }
-    pub fn encode(&self, mut vec:Vec<u8>) -> String {
+    pub fn encode(&self, mut vec: Vec<u8>) -> String {
         let mut num_padding = 0;
         while vec.len() % 3 != 0 {
             vec.push(0);
@@ -43,8 +43,8 @@ impl Base64Codec {
         let len = vec.len() / 3;
         let mut v_out: Vec<u8> = Vec::with_capacity(len * 4);
         for i in 0..len {
-            let arr = en_crypto(self.codec,vec[i*3..=i*3+2].try_into().unwrap());
-            for val in arr{
+            let arr = en_crypto(self.codec, vec[i * 3..=i * 3 + 2].try_into().unwrap());
+            for val in arr {
                 v_out.push(self.table[val as usize]);
             }
         }
@@ -74,14 +74,14 @@ impl Base64Codec {
             vec.push(self.d_table[&c]);
             if vec.len() == 4 {
                 let arr = de_crypto(self.codec, vec[0..4].try_into().unwrap());
-                for val in arr{
+                for val in arr {
                     vec_out.push(val);
                 }
                 vec.clear();
             }
         }
-        if vec.is_empty(){
-            for _ in 0..(self.padding.len_utf8()*num_padding){
+        if vec.is_empty() {
+            for _ in 0..(self.padding.len_utf8() * num_padding) {
                 vec_out.pop();
             }
             return vec_out;
@@ -89,11 +89,11 @@ impl Base64Codec {
         Vec::from("[Error] Invalid Text")
     }
 
-    pub fn decode_str(&self, s: &str) -> String{
+    pub fn decode_str(&self, s: &str) -> String {
         let vec = self.decode(s);
-        if let Ok(s) = String::from_utf8(vec){
+        if let Ok(s) = String::from_utf8(vec) {
             s
-        }else {
+        } else {
             String::from("[Error] Invalid String, Try fdf mode!")
         }
     }
@@ -137,7 +137,8 @@ mod test {
             "进行解码测试".as_bytes()
         );
         assert_eq!(
-            ct.decode_str("WlhDVkJOTUxLSkhHRkRTQVFXRVJUWVVJT1A7").as_bytes(),
+            ct.decode_str("WlhDVkJOTUxLSkhHRkRTQVFXRVJUWVVJT1A7")
+                .as_bytes(),
             "ZXCVBNMLKJHGFDSAQWERTYUIOP;".as_bytes()
         );
     }
@@ -151,5 +152,26 @@ mod test {
         let ct = Base64Codec::default();
         let s = "Base64 是一种基于 64 个可打印字符来表示二进制数据的表示方法，由于 2^6=64，所以每 6 个比特为一个单元，对应某个可打印字符。";
         assert_eq!(ct.decode_str(&ct.encode_str(s)), s);
+    }
+
+    #[test]
+    fn test_base64_encode_decode() {
+        let ct = Base64Codec::default();
+        let original = "Hello, World!";
+        let encoded = ct.encode_str(original);
+        assert_eq!(encoded, "SGVsbG8sIFdvcmxkIQ==");
+
+        let decoded = ct.decode_str(&encoded);
+        assert_eq!(original, decoded);
+    }
+    #[test]
+    fn test_base64_encode_decode_empty() {
+        let ct = Base64Codec::default();
+        let original = "";
+        let encoded = ct.encode_str(original);
+        assert_eq!(encoded, "");
+
+        let decoded = ct.decode_str(&encoded);
+        assert_eq!(decoded.len(), 0);
     }
 }
